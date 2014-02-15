@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "Image.h"
+#include "image.h"
 
 #define kCellSize     4  // length of cell in px
 #define kBlockSize    2  // length of block in number of cells
