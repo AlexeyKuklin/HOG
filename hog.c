@@ -1,4 +1,4 @@
-#include "HOG.h"
+#include "hog.h"
 
 Vec* gradientVectors(Image* img) {
     int height = img->h;
