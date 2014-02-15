@@ -1,11 +1,10 @@
 #include "hog.h"
 
-Vec* gradientVectors(Image* img) {
+void calculateGradientVectors(Image* img) {
     int height = img->h;
     int width = img->w;
     unsigned char* data = img->data;
-    
-    Vec* vectors = (Vec *)malloc(height * width * sizeof(Vec));
+    GradVec* vectors = img->vectors;
     
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -23,103 +22,112 @@ Vec* gradientVectors(Image* img) {
             vectors[c].orient = atan2(gradY, gradX);
         }
     }
-    return vectors;
 }
 
-int binFor(float radians) {
-    float angle = radians * (180 / M_PI);
+int getBin(float angle) {
     if (angle < 0) {
-        angle += 180;
+        angle += M_PI_2;
     }
-    
-    // center the first bin around 0
-    angle += 90 / kBins;
-    //angle %= 180;
-    if (angle > 180) {
-        angle -= 180;
-    }
-    
-    int bin = floor(angle / 180 * kBins);
-    return bin;
+    return floor(angle * kBins / M_PI);
 }
 
-void getHistogram(Histogram* histogram, Vec* vectors, int x, int y) {
+void getHistogram(Histogram* histogram, GradVec* vectors, const int x, const int y) {
     for (int i = 0; i < kCellSize; i++) {
         for (int j = 0; j < kCellSize; j++) {
-            Vec v = vectors[y*kCellSize + i + x + j];
-            int bin = binFor(v.orient);
-            histogram->h[bin] += v.mag;
+            GradVec* v = &vectors[y*kCellSize + i + x + j];
+            int bin = getBin(v->orient);
+            histogram->h[bin] += v->mag;
         }
     }
 }
 
-Histogram* extractHistograms(Image* img, Histogram* histograms, int cellsHigh, int cellsWide) {
-    Vec* v = gradientVectors(img);
-    for (int i = 0; i < cellsHigh; i++) {
-        for (int j = 0; j < cellsWide; j++) {
-            Histogram* h = &histograms[i*cellsWide + j];
-            getHistogram(h, v, j * kCellSize, i * kCellSize);
+void extractHistograms(Image* img) {
+    memset(img->histograms, 0, img->cellsHigh * img->cellsWide * sizeof(Histogram));
+    calculateGradientVectors(img);
+    for (int i = 0; i < img->cellsHigh; i++) {
+        for (int j = 0; j < img->cellsWide; j++) {
+            Histogram* h = &img->histograms[i*img->cellsWide + j];
+            getHistogram(h, img->vectors, j * kCellSize, i * kCellSize);
         }
     }
-    return histograms;
 }
 
-
-void normalize(vector, int length) {
+float getBlockDenominator(Image* img, const int xCell, const int yCell) {
     const float epsilon = 0.00001;
     float sum = 0;
-    for (int i = 0; i < length; i++) {
-        sum += pow(vector[i], 2);
+    for(int y = yCell; y < xCell + kBlockSize; y++) {
+        for(int x = xCell; x < xCell + kBlockSize; x++) {
+            Histogram *h = &img->histograms[y*img->cellsWide + x];
+            for (int i = 0; i < kBins; i++) {
+                sum += pow(h->h[i], 2);
+            }
+        }
     }
     float denom = sqrt(sum + epsilon);
-    for (int i = 0; i < length; i++) {
-        vector[i] /= denom;
-    }
+    return denom;
 }
 
-
-void getBlock(Block* square, matrix, x, y, length) {
-    //var square = [];
-    
-    int c = 0;
-    for (int i = y; i < y + length; i++) {
-        for (int j = x; j < x + length; j++) {
-            //square.push(matrix[i][j]);
-            square[c] = matrix[i*length + j];
-            c++;
+int setBlockHOG(Image* img, int pos, const int xCell, const int yCell, const float denominator) {
+    for(int y = yCell; y < yCell + kBlockSize; y++) {
+        for(int x = xCell; x < xCell + kBlockSize; x++) {
+            Histogram *h = &img->histograms[y*img->cellsWide + x];
+            for (int i = 0; i < kBins; i++) {
+                printf("pos = %d\n", pos );
+                img->hog.value[pos] = h->h[i] / denominator;
+                pos++;
+            }
         }
     }
-    //return Array.prototype.concat.apply([], square);
+    return pos;
 }
 
-void extractHOGFromHistograms(HOG* hog, Histogram* histograms, int blocksHigh, int blocksWide) {
-    
-    //var blocks = [];
-    
-     int c = 0;
-     for (int y = 0; y < blocksHigh; y += kBlockStride) {
-        for (int x = 0; x < blocksWide; x += kBlockStride) {
-            getBlock(&hog->block[c], histograms, x, y, kBlockSize);
-            normalize(block);
-            c++;
+HOG* getHOG(Image* img, const int xCell, const int yCell) {
+    int pos = 0;
+    for(int y = yCell; y < yCell + kHOGH; y++) {
+        for(int x = xCell; x < xCell + kHOGW; x++) {
+            float denominator = getBlockDenominator(img, x, y);
+            pos = setBlockHOG(img, pos, x, y, denominator);
+            printf("fuck pos = %d\n", pos );
         }
     }
-    //return Array.prototype.concat.apply([], blocks);
+    return &img->hog;
 }
 
-HOG* extractHOG(Image* img) {
-    int cellsHigh = floor(img->h / kCellSize);
-    int cellsWide = floor(img->w / kCellSize);
-    int histlen = cellsHigh * cellsWide * sizeof(Histogram);
-    Histogram* histograms = malloc(histlen);
-    memset(histograms, 0, histlen);
-    extractHistograms(img, histograms, cellsHigh, cellsWide);
-//
-    int blocksHigh = cellsHigh - kBlockSize + 1;
-    int blocksWide = cellsWide - kBlockSize + 1;
-    HOG* hog = malloc(?*sizeof(?));
-    extractHOGFromHistograms(hog, histograms, blocksHigh, blocksWide);
-    return hog;
+Image* createImage(const int w, const int h) {
+    Image* img = malloc(sizeof(Image));
+    img->w = w;
+    img->h = h;
+    img->data = malloc(w * h * sizeof(unsigned char));
+    img->vectors = malloc(w * h * sizeof(GradVec));
+    img->cellsHigh = floor(h / kCellSize);
+    img->cellsWide = floor(w / kCellSize);
+    img->histograms = malloc(img->cellsHigh * img->cellsWide * sizeof(Histogram));
+    img->hog.value = malloc(kHOGLength * sizeof(float));
+    return img;
 }
 
+void freeImage(Image* img) {
+    free(img->data);
+    free(img->vectors);
+    free(img->histograms);
+    free(img->hog.value);
+    free(img);
+}
+
+void testCase() {
+    Image* img = createImage(300, 300);
+    extractHistograms(img);
+    /*for (int y = 0; y < img->cellsHigh; y++) {
+        for (int x=0; x < img->cellsWide; x++) {
+            getHOG(img, x, y);
+        }
+    }
+    */
+    printf("point 1\n");
+    getHOG(img, 2, 2);
+    printf("point 2\n");
+    freeImage(img);
+    printf("point 3\n");
+    
+}
 
