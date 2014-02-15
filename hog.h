@@ -14,12 +14,8 @@
 
 
 typedef struct {
-    float h[kBins];
-} Block;
-
-
-typedef struct {
-    Block* block;
+    int length;
+    float *value;
 } HOG;
 
 
