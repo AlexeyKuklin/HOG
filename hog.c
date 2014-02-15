@@ -55,7 +55,7 @@ void extractHistograms(Image* img) {
 float getBlockDenominator(Image* img, const int xCell, const int yCell) {
     const float epsilon = 0.00001;
     float sum = 0;
-    for(int y = yCell; y < xCell + kBlockSize; y++) {
+    for(int y = yCell; y < yCell + kBlockSize; y++) {
         for(int x = xCell; x < xCell + kBlockSize; x++) {
             Histogram *h = &img->histograms[y*img->cellsWide + x];
             for (int i = 0; i < kBins; i++) {
@@ -72,7 +72,6 @@ int setBlockHOG(Image* img, int pos, const int xCell, const int yCell, const flo
         for(int x = xCell; x < xCell + kBlockSize; x++) {
             Histogram *h = &img->histograms[y*img->cellsWide + x];
             for (int i = 0; i < kBins; i++) {
-                //printf("pos = %d\n", pos );
                 img->hog.value[pos] = h->h[i] / denominator;
                 pos++;
             }
@@ -83,26 +82,28 @@ int setBlockHOG(Image* img, int pos, const int xCell, const int yCell, const flo
 
 HOG* getHOG(Image* img, const int xCell, const int yCell) {
     int pos = 0;
-    for(int y = yCell; y < yCell + kHOGH; y++) {
-        for(int x = xCell; x < xCell + kHOGW; x++) {
+    const int yCellMax = yCell + kHOGCellHeight - 1;
+    const int xCellMax = xCell + kHOGCellWidth - 1;
+    
+    for(int y = yCell; y < yCellMax; y+=kBlockStride) {
+        for(int x = xCell; x < xCellMax; x+=kBlockStride) {
             float denominator = getBlockDenominator(img, x, y);
             pos = setBlockHOG(img, pos, x, y, denominator);
-            //printf("total pos = %d\n", pos );
         }
     }
     return &img->hog;
 }
 
 Image* createImage(const int w, const int h) {
-    Image* img = malloc(sizeof(Image));
+    Image* img = (Image *)malloc(sizeof(Image));
     img->w = w;
     img->h = h;
-    img->data = malloc(w * h * sizeof(unsigned char));
-    img->vectors = malloc(w * h * sizeof(GradVec));
-    img->cellsHigh = floor(h / kCellSize);
+    img->data = (unsigned char *)malloc(w * h * sizeof(unsigned char));
+    img->vectors = (GradVec *)malloc(w * h * sizeof(GradVec));
     img->cellsWide = floor(w / kCellSize);
-    img->histograms = malloc(img->cellsHigh * img->cellsWide * sizeof(Histogram));
-    img->hog.value = malloc(kHOGLength * sizeof(float));
+    img->cellsHigh = floor(h / kCellSize);
+    img->histograms = (Histogram *)malloc(img->cellsWide * img->cellsHigh * sizeof(Histogram));
+    img->hog.value = (float *)malloc(kHOGLength * sizeof(float));
     return img;
 }
 
@@ -115,19 +116,13 @@ void freeImage(Image* img) {
 }
 
 void testCase() {
-    Image* img = createImage(300, 300);
+    Image* img = createImage(640, 480);
     extractHistograms(img);
-    /*for (int y = 0; y < img->cellsHigh; y++) {
-        for (int x=0; x < img->cellsWide; x++) {
+    for (int y = 0; y < img->cellsHigh - kHOGCellWidth; y++) {
+        for (int x=0; x < img->cellsWide - kHOGCellHeight; x++) {
             getHOG(img, x, y);
         }
     }
-    */
-    printf("point 1\n");
-    getHOG(img, 2, 2);
-    printf("point 2\n");
     freeImage(img);
-    printf("point 3\n");
-    
 }
 
