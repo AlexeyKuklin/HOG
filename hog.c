@@ -72,7 +72,7 @@ int setBlockHOG(Image* img, int pos, const int xCell, const int yCell, const flo
         for(int x = xCell; x < xCell + kBlockSize; x++) {
             Histogram *h = &img->histograms[y*img->cellsWide + x];
             for (int i = 0; i < kBins; i++) {
-                printf("pos = %d\n", pos );
+                //printf("pos = %d\n", pos );
                 img->hog.value[pos] = h->h[i] / denominator;
                 pos++;
             }
@@ -87,7 +87,7 @@ HOG* getHOG(Image* img, const int xCell, const int yCell) {
         for(int x = xCell; x < xCell + kHOGW; x++) {
             float denominator = getBlockDenominator(img, x, y);
             pos = setBlockHOG(img, pos, x, y, denominator);
-            printf("fuck pos = %d\n", pos );
+            //printf("total pos = %d\n", pos );
         }
     }
     return &img->hog;
