@@ -1,10 +1,17 @@
 #include "hog.h"
 
+int getBin(float angle) {
+    if (angle < 0) {
+        angle += M_PI;
+    }
+    return floor(angle * kBins / M_PI);
+}
+
 void calculateGradientVectors(Image* img) {
     int height = img->h;
     int width = img->w;
     unsigned char* data = img->data;
-    GradVec* vectors = img->vectors;
+    GradVec* v = img->vectors;
     
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -18,25 +25,17 @@ void calculateGradientVectors(Image* img) {
             int gradX = -prevX + nextX;
             int gradY = -prevY + nextY;
             
-            vectors[c].mag = sqrt(gradX*gradX + gradY*gradY);
-            vectors[c].orient = atan2(gradY, gradX);
+            v[c].mag = sqrt(gradX*gradX + gradY*gradY);
+            v[c].bin = getBin(atan2f(gradY, gradX));
         }
     }
-}
-
-int getBin(float angle) {
-    if (angle < 0) {
-        angle += M_PI_2;
-    }
-    return floor(angle * kBins / M_PI);
 }
 
 void getHistogram(Histogram* histogram, GradVec* vectors, const int x, const int y) {
     for (int i = 0; i < kCellSize; i++) {
         for (int j = 0; j < kCellSize; j++) {
             GradVec* v = &vectors[y*kCellSize + i + x + j];
-            int bin = getBin(v->orient);
-            histogram->h[bin] += v->mag;
+            histogram->h[v->bin] += v->mag;
         }
     }
 }
@@ -124,5 +123,6 @@ void testCase() {
         }
     }
     freeImage(img);
+    
 }
 

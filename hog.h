@@ -22,7 +22,7 @@ typedef struct {
 
 typedef struct {
     float mag;
-    float orient;
+    unsigned char bin;
 } GradVec;
 
 
